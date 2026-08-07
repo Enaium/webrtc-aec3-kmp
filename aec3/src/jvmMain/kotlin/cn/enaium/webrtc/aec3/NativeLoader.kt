@@ -41,7 +41,10 @@ internal object NativeLoader {
 
     fun load() {
         val classifier = detectClassifier()
-        val libFile = "lib$LIB_NAME.${libExtension()}"
+        // Windows DLLs don't use the "lib" prefix (webrtc_aec3_jni.dll),
+        // while Unix shared libraries do (libwebrtc_aec3_jni.so/.dylib).
+        val prefix = if (classifier.startsWith("windows")) "" else "lib"
+        val libFile = "$prefix$LIB_NAME.${libExtension()}"
         val resourcePath = "$RESOURCE_BASE/$classifier/$libFile"
         val stream = NativeLoader::class.java.getResourceAsStream(resourcePath)
         if (stream == null) {
