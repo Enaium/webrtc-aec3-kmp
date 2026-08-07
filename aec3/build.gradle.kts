@@ -271,17 +271,22 @@ fun registerNativeBuildTasks(targetName: String, cmakeFlags: List<String> = empt
             outputDir.mkdirs()
             // Trigger the one-time Kotlin/Native toolchain download/extract so
             // the static C library is compiled with the bundled glibc 2.19
-            // gcc-8.3 toolchain (matching the K/N linuxX64 sysroot).
+            // gcc-8.3 toolchain (matching the K/N linuxX64 sysroot). If the
+            // K/N prebuilt bundle isn't downloaded yet, skip silently: the
+            // cinterop task that depends on this one will download it, and a
+            // subsequent build will pick up the toolchain.
             if (targetName == "linuxX64" && resolveKonanLinuxToolchain() == null) {
                 val konanBin = File(konanHome, "kotlin-native-prebuilt-linux-x86_64-2.2.10/bin/konanc")
-                val proc = ProcessBuilder(konanBin.absolutePath, "-version")
-                    .directory(rootDir)
-                    .redirectErrorStream(true)
-                    .start()
-                proc.inputStream.bufferedReader().useLines { lines ->
-                    lines.forEach { logger.lifecycle(it) }
+                if (konanBin.isFile) {
+                    val proc = ProcessBuilder(konanBin.absolutePath, "-version")
+                        .directory(rootDir)
+                        .redirectErrorStream(true)
+                        .start()
+                    proc.inputStream.bufferedReader().useLines { lines ->
+                        lines.forEach { logger.lifecycle(it) }
+                    }
+                    proc.waitFor()
                 }
-                proc.waitFor()
             }
         }
         workingDir = cmakeBuildDir
