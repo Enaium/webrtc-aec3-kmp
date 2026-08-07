@@ -48,8 +48,29 @@ internal object NativeLoader {
         val resourcePath = "$RESOURCE_BASE/$classifier/$libFile"
         val stream = NativeLoader::class.java.getResourceAsStream(resourcePath)
         if (stream == null) {
-            System.loadLibrary(LIB_NAME)
-            return
+            // Android loads from the AAR's jniLibs via System.loadLibrary;
+            // there is no classpath resource there. Anywhere else a missing
+            // resource is an error worth reporting.
+            val osName = System.getProperty("os.name").orEmpty().lowercase()
+            if (osName.contains("android")) {
+                System.loadLibrary(LIB_NAME)
+                return
+            }
+            val found = NativeLoader::class.java.classLoader
+                ?.getResources("cn/enaium/webrtc/aec3/native")
+                ?.toList()
+                ?.flatMap { url ->
+                    runCatching {
+                        (url.openConnection() as java.net.JarURLConnection)
+                            .jarFile.entries().toList().map { it.name }
+                    }.getOrDefault(emptyList())
+                }
+                ?.filter { it.contains("native/") }
+            throw UnsatisfiedLinkError(
+                "Resource $resourcePath not found. " +
+                    "os=${System.getProperty("os.name")}, arch=${System.getProperty("os.arch")}, " +
+                    "classifier=$classifier. Native resources on classpath: ${found ?: "n/a"}",
+            )
         }
         val bytes = stream.use { it.readBytes() }
         val target = extractToTemp(bytes, libFile)

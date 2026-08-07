@@ -130,6 +130,11 @@ jobs:
           if (Test-Path $resDir) {
             Get-ChildItem -Recurse $resDir | Select-Object FullName
           }
+          $dll = Get-ChildItem -Recurse jni/jvm/windows-x86_64/build -Filter "*.dll" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($dll) {
+            Write-Host "DLL: $($dll.FullName)"
+            & "C:\ProgramData\chocolatey\lib\mingw\tools\install\bin\objdump.exe" -p $dll.FullName | Select-String "DLL Name"
+          }
 
       - name: Run JVM tests
         run: ./gradlew --no-daemon --stacktrace :aec3:jvmTest
