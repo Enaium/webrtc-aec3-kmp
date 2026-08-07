@@ -126,10 +126,11 @@ jobs:
 
   test-android:
     name: Test Android
-    # macOS runners provide hardware-accelerated emulators (arm64 via the
-    # Hypervisor framework); GitHub's ubuntu runners lack /dev/kvm, and
-    # software-emulated x86 images time out while booting.
-    runs-on: macos-14
+    # GitHub-hosted runners don't support nested virtualization, so Android
+    # emulators can't boot with hardware acceleration (KVM on Linux, HVF on
+    # macOS). The AAR and example APK are assembled and the androidTest APK
+    # is compiled; instrumented tests must be run on a local device.
+    runs-on: ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
@@ -148,13 +149,5 @@ jobs:
       - name: Publish all platforms to Maven Local
         run: ./gradlew --no-daemon --stacktrace :aec3:publishToMavenLocal
 
-      - name: Assemble Android app
-        run: ./gradlew --no-daemon :example:assembleDebug
-
-      - name: Run Android instrumented tests
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 36
-          arch: arm64-v8a
-          target: default
-          script: ./gradlew :example:connectedDebugAndroidTest
+      - name: Assemble Android app and androidTest APK
+        run: ./gradlew --no-daemon :example:assembleDebug :example:assembleDebugAndroidTest
