@@ -121,19 +121,8 @@ jobs:
         shell: pwsh
         run: |
           $jar = "jni/jvm/windows-x86_64/build/libs/jni-jvm-windows-x86_64-1.0-SNAPSHOT.jar"
-          Write-Host "JAR exists: $(Test-Path $jar)"
           if (Test-Path $jar) {
             & "$env:JAVA_HOME\bin\jar.exe" tf $jar
-          }
-          $resDir = "jni/jvm/windows-x86_64/build/resources/main"
-          Write-Host "resources/main exists: $(Test-Path $resDir)"
-          if (Test-Path $resDir) {
-            Get-ChildItem -Recurse $resDir | Select-Object FullName
-          }
-          $dll = Get-ChildItem -Recurse jni/jvm/windows-x86_64/build -Filter "*.dll" -ErrorAction SilentlyContinue | Select-Object -First 1
-          if ($dll) {
-            Write-Host "DLL: $($dll.FullName)"
-            & "C:\ProgramData\chocolatey\lib\mingw\tools\install\bin\objdump.exe" -p $dll.FullName | Select-String "DLL Name"
           }
 
       - name: Run JVM tests
