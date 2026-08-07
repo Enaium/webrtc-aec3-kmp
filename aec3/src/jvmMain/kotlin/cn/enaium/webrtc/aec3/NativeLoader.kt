@@ -1,0 +1,93 @@
+/*
+ * Copyright (c) 2026 Enaium
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+package cn.enaium.webrtc.aec3
+
+import java.io.File
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.security.MessageDigest
+
+/**
+ * Resolves and loads the JNI shared library bundled in the matching
+ * `webrtc-aec3-kmp-jni-jvm-{os}-{arch}` artifact's resources.
+ *
+ * Falls back to `System.loadLibrary("webrtc_aec3_jni")` if no bundled
+ * binary matches the host (Android loads from the AAR jniLibs, or a
+ * developer workflow places the lib on `java.library.path`).
+ */
+internal object NativeLoader {
+    private const val LIB_NAME = "webrtc_aec3_jni"
+    private const val RESOURCE_BASE = "/cn/enaium/webrtc/aec3/native"
+
+    fun load() {
+        val classifier = detectClassifier()
+        val libFile = "lib$LIB_NAME.${libExtension()}"
+        val resourcePath = "$RESOURCE_BASE/$classifier/$libFile"
+        val stream = NativeLoader::class.java.getResourceAsStream(resourcePath)
+        if (stream == null) {
+            System.loadLibrary(LIB_NAME)
+            return
+        }
+        val bytes = stream.use { it.readBytes() }
+        val target = extractToTemp(bytes, libFile)
+        System.load(target.absolutePath)
+    }
+
+    private fun extractToTemp(bytes: ByteArray, libFile: String): File {
+        val digest = MessageDigest.getInstance("SHA-256").digest(bytes)
+        val hex = digest.joinToString("") { "%02x".format(it) }.take(16)
+        val tempDir = File(System.getProperty("java.io.tmpdir"), "webrtc-aec3-kmp-$hex")
+        tempDir.mkdirs()
+        val target = File(tempDir, libFile)
+        if (!target.isFile || target.length().toInt() != bytes.size) {
+            val tmp = File.createTempFile(libFile, ".part", tempDir)
+            tmp.writeBytes(bytes)
+            Files.move(tmp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        }
+        return target
+    }
+
+    private fun detectClassifier(): String {
+        val osName = System.getProperty("os.name").orEmpty().lowercase()
+        val osArch = System.getProperty("os.arch").orEmpty().lowercase()
+        val os = when {
+            osName.contains("linux") -> "linux"
+            osName.contains("mac") || osName.contains("darwin") || osName.contains("osx") -> "darwin"
+            else -> error("Unsupported OS for webrtc-aec3-kmp JVM artifact: $osName")
+        }
+        val arch = when (osArch) {
+            "amd64", "x86_64", "x64" -> "x86_64"
+            "aarch64", "arm64" -> "aarch64"
+            else -> error("Unsupported CPU architecture for webrtc-aec3-kmp JVM artifact: $osArch")
+        }
+        return "$os-$arch"
+    }
+
+    private fun libExtension(): String {
+        val osName = System.getProperty("os.name").orEmpty().lowercase()
+        return when {
+            osName.contains("mac") || osName.contains("darwin") || osName.contains("osx") -> "dylib"
+            else -> "so"
+        }
+    }
+}

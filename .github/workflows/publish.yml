@@ -1,0 +1,119 @@
+name: Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g. 1.0.0)'
+        required: true
+        type: string
+
+# Publishes every artifact from the runner that can build it. Maven Central
+# coordinates are immutable, so each `:jni-jvm-{classifier}` is published from
+# exactly one runner:
+#
+#   macos-14      -> :aec3 (multiplatform module: android/jvm/macos/ios/tvos/watchos)
+#                    :jni-jvm-darwin-aarch64, :jni-jvm-darwin-x86_64
+#   ubuntu-latest -> :jni-jvm-linux-x86_64, :jni-jvm-linux-aarch64 (via aarch64 cross)
+#
+# Trigger: run manually via the Actions tab with the target version.
+#
+# Required repository secrets (Settings -> Secrets and variables -> Actions):
+#   MAVEN_CENTRAL_USERNAME           Sonatype Central Portal user-token username
+#   MAVEN_CENTRAL_PASSWORD           Sonatype Central Portal user-token password
+#   SIGNING_KEY                      ASCII-armored GPG private key (full block)
+#   SIGNING_PASSWORD                 Passphrase for the GPG key (omit if none)
+
+jobs:
+  publish-macos:
+    name: Publish macOS (multiplatform + darwin JNI)
+    runs-on: macos-14
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Configure JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Publish :aec3 and :jni-jvm-darwin-*
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_PASSWORD }}
+        run: >
+          ./gradlew --no-daemon --stacktrace
+          :aec3:publishAllPublicationsToMavenCentralRepository
+          :jni-jvm-darwin-aarch64:publishToMavenCentral
+          :jni-jvm-darwin-x86_64:publishToMavenCentral
+          -Pversion=${{ inputs.version }}
+          --continue
+
+  publish-linux:
+    name: Publish Linux JNI
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Configure JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install aarch64-linux-gnu cross-compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Publish :jni-jvm-linux-{x86_64,aarch64}
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_PASSWORD }}
+        run: >
+          ./gradlew --no-daemon --stacktrace
+          :jni-jvm-linux-x86_64:publishToMavenCentral
+          :jni-jvm-linux-aarch64:publishToMavenCentral
+          -Pversion=${{ inputs.version }}
+          --continue
+
+  close-and-release:
+    name: Close and release
+    needs: [publish-macos, publish-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Configure JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Close and release staging repository
+        run: ./gradlew --no-daemon :aec3:closeAndReleaseRepository
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
