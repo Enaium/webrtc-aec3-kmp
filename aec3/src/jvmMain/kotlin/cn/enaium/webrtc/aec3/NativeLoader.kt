@@ -53,7 +53,14 @@ internal object NativeLoader {
         }
         val bytes = stream.use { it.readBytes() }
         val target = extractToTemp(bytes, libFile)
-        System.load(target.absolutePath)
+        try {
+            System.load(target.absolutePath)
+        } catch (e: UnsatisfiedLinkError) {
+            throw UnsatisfiedLinkError(
+                "Failed to load $libFile from $resourcePath (os=${System.getProperty("os.name")}, " +
+                    "arch=${System.getProperty("os.arch")}): ${e.message}",
+            )
+        }
     }
 
     private fun extractToTemp(bytes: ByteArray, libFile: String): File {
