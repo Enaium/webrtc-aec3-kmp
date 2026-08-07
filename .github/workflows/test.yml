@@ -124,6 +124,14 @@ jobs:
           if (Test-Path $jar) {
             & "$env:JAVA_HOME\bin\jar.exe" tf $jar
           }
+          $resDir = "jni/jvm/windows-x86_64/build/resources/main"
+          Write-Host "resources/main exists: $(Test-Path $resDir)"
+          if (Test-Path $resDir) {
+            Get-ChildItem -Recurse $resDir | ForEach-Object { $_.FullName }
+          }
+          $dll = Get-ChildItem -Recurse jni/jvm/windows-x86_64/build -Filter "*.dll" -ErrorAction SilentlyContinue
+          Write-Host "DLLs found: $($dll.Count)"
+          $dll | ForEach-Object { Write-Host $_.FullName }
 
       - name: Run JVM tests
         run: ./gradlew --no-daemon --stacktrace :aec3:jvmTest
