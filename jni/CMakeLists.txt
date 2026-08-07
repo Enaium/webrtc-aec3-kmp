@@ -136,5 +136,8 @@ if(BUILD_JNI)
 
     if(APPLE)
         target_link_libraries(webrtc_aec3_jni PRIVATE "-framework CoreFoundation")
+    elseif(WIN32)
+        # timeGetTime() used by rtc_base/time_utils.cc
+        target_link_libraries(webrtc_aec3_jni PRIVATE winmm)
     endif()
 endif()

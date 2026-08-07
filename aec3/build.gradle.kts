@@ -352,7 +352,7 @@ if (hostOs.isMacOsX) {
             "-DCMAKE_SYSTEM_PROCESSOR=arm64",
             "-DCMAKE_OSX_ARCHITECTURES=arm64",
             "-DCMAKE_OSX_SYSROOT=watchos",
-            "-DCMAKE_OSX_DEPLOYMENT_TARGET=4.0",
+            "-DCMAKE_OSX_DEPLOYMENT_TARGET=5.0",
         ),
     )
     registerNativeBuildTasks(
@@ -362,7 +362,7 @@ if (hostOs.isMacOsX) {
             "-DCMAKE_SYSTEM_PROCESSOR=arm64",
             "-DCMAKE_OSX_ARCHITECTURES=arm64",
             "-DCMAKE_OSX_SYSROOT=watchsimulator",
-            "-DCMAKE_OSX_DEPLOYMENT_TARGET=4.0",
+            "-DCMAKE_OSX_DEPLOYMENT_TARGET=5.0",
         ),
     )
     registerNativeBuildTasks(
@@ -372,7 +372,7 @@ if (hostOs.isMacOsX) {
             "-DCMAKE_SYSTEM_PROCESSOR=arm64",
             "-DCMAKE_OSX_ARCHITECTURES=arm64",
             "-DCMAKE_OSX_SYSROOT=watchos",
-            "-DCMAKE_OSX_DEPLOYMENT_TARGET=4.0",
+            "-DCMAKE_OSX_DEPLOYMENT_TARGET=5.0",
         ),
     )
 } else if (hostOs.isLinux) {
