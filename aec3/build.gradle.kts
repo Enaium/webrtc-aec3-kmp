@@ -21,7 +21,12 @@ val hostArch = System.getProperty("os.arch").lowercase()
 
 // Whether the current host can cross-compile the C library for the given
 // Kotlin/Native target. Apple targets build from macOS via Xcode; linuxX64 is
-// built on Linux hosts; mingwX64 is built on Windows hosts.
+// built on Linux hosts.
+//
+// mingwX64 is intentionally excluded: Windows hosts default to MSVC, whose
+// archives are incompatible with Kotlin/Native's MinGW linker, and the C++
+// code also trips MSVC-specific warnings-as-errors. The mingwX64 klib is
+// still produced (bindings without an embedded static library).
 fun canBuildNativeTarget(targetName: String): Boolean {
     return when {
         hostOs.isMacOsX && targetName.startsWith("macos") -> true
@@ -29,7 +34,6 @@ fun canBuildNativeTarget(targetName: String): Boolean {
         hostOs.isMacOsX && targetName.startsWith("tvos") -> true
         hostOs.isMacOsX && targetName.startsWith("watchos") -> true
         hostOs.isLinux && targetName == "linuxX64" -> true
-        hostOs.isWindows && targetName == "mingwX64" -> true
         else -> false
     }
 }
@@ -377,8 +381,6 @@ if (hostOs.isMacOsX) {
     )
 } else if (hostOs.isLinux) {
     registerNativeBuildTasks("linuxX64")
-} else if (hostOs.isWindows) {
-    registerNativeBuildTasks("mingwX64")
 }
 
 // ==================== Android: build JNI shared library per ABI ====================
