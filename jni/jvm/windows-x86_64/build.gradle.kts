@@ -84,7 +84,10 @@ val buildJniLibrary by tasks.registering(Exec::class) {
 
 tasks.named<Copy>("processResources") {
     dependsOn(buildJniLibrary)
-    from(nativeOutputDir) {
+    // Use the build task's declared outputs (lazily resolved at execution
+    // time) instead of the directory Provider, which may be snapshotted
+    // empty at configuration time.
+    from(buildJniLibrary.map { it.outputs.files }) {
         include(libFile)
         into(resourceDir)
     }
