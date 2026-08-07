@@ -1,6 +1,6 @@
 name: Test
 
-on:
+"on":
   workflow_dispatch:
 
 # Publishes every artifact to the local Maven repository and runs the test
