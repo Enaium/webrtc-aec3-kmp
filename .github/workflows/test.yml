@@ -9,6 +9,7 @@ name: Test
 #
 #   macOS ARM64    -> :aec3 (multiplatform module), darwin JNI, JVM + native tests
 #   Linux x64      -> linux JNI (x86_64 + aarch64 cross), JVM + native tests
+#   Windows x64    -> windows JNI (MinGW), JVM + native tests
 #   Android        -> publish to Maven Local, assemble + instrumented tests
 
 concurrency:
@@ -81,6 +82,39 @@ jobs:
 
       - name: Run native tests
         run: ./gradlew --no-daemon :aec3:linuxX64Test
+
+  test-windows:
+    name: Test Windows x64
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Configure JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install MinGW
+        shell: pwsh
+        run: choco install mingw -y --no-progress
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Publish windows JNI to Maven Local
+        run: >
+          ./gradlew --no-daemon --stacktrace
+          :jni-jvm-windows-x86_64:publishToMavenLocal
+
+      - name: Run JVM tests
+        run: ./gradlew --no-daemon :aec3:jvmTest
+
+      - name: Run native tests
+        run: ./gradlew --no-daemon :aec3:mingwX64Test
 
   test-android:
     name: Test Android

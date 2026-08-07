@@ -15,6 +15,7 @@ name: Publish
 #   macos-14      -> :aec3 (multiplatform module: android/jvm/macos/ios/tvos/watchos)
 #                    :jni-jvm-darwin-aarch64, :jni-jvm-darwin-x86_64
 #   ubuntu-latest -> :jni-jvm-linux-x86_64, :jni-jvm-linux-aarch64 (via aarch64 cross)
+#   windows-latest -> :jni-jvm-windows-x86_64 (via MinGW)
 #
 # Trigger: run manually via the Actions tab with the target version.
 #
@@ -93,9 +94,43 @@ jobs:
           -Pversion=${{ inputs.version }}
           --continue
 
+  publish-windows:
+    name: Publish Windows JNI
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Configure JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install MinGW
+        shell: pwsh
+        run: choco install mingw -y --no-progress
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Publish :jni-jvm-windows-x86_64
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_PASSWORD }}
+        run: >
+          ./gradlew --no-daemon --stacktrace
+          :jni-jvm-windows-x86_64:publishToMavenCentral
+          -Pversion=${{ inputs.version }}
+          --continue
+
   close-and-release:
     name: Close and release
-    needs: [publish-macos, publish-linux]
+    needs: [publish-macos, publish-linux, publish-windows]
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository

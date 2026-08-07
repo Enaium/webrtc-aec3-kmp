@@ -73,6 +73,7 @@ internal object NativeLoader {
         val os = when {
             osName.contains("linux") -> "linux"
             osName.contains("mac") || osName.contains("darwin") || osName.contains("osx") -> "darwin"
+            osName.contains("win") -> "windows"
             else -> error("Unsupported OS for webrtc-aec3-kmp JVM artifact: $osName")
         }
         val arch = when (osArch) {
@@ -86,6 +87,7 @@ internal object NativeLoader {
     private fun libExtension(): String {
         val osName = System.getProperty("os.name").orEmpty().lowercase()
         return when {
+            osName.contains("win") -> "dll"
             osName.contains("mac") || osName.contains("darwin") || osName.contains("osx") -> "dylib"
             else -> "so"
         }

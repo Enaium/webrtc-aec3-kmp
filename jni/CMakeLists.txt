@@ -13,7 +13,11 @@ set(C_API_DIR ${CMAKE_CURRENT_SOURCE_DIR}/c_api)
 
 add_library(webrtc_aec3 STATIC)
 
-target_compile_options(webrtc_aec3 PRIVATE -Wall -fPIC -Wno-deprecated -fexceptions)
+if(MSVC)
+    target_compile_options(webrtc_aec3 PRIVATE /W3 /EHsc /bigobj)
+else()
+    target_compile_options(webrtc_aec3 PRIVATE -Wall -fPIC -Wno-deprecated -fexceptions)
+endif()
 
 if(ANDROID)
     target_compile_definitions(webrtc_aec3 PRIVATE WEBRTC_ANDROID WEBRTC_POSIX)
@@ -23,10 +27,13 @@ if(ANDROID)
     target_include_directories(webrtc_aec3 PRIVATE ${ANDROID_NDK}/sources/android/cpufeatures)
 elseif(APPLE)
     target_compile_definitions(webrtc_aec3 PRIVATE WEBRTC_MAC WEBRTC_POSIX)
-elseif(UNIX AND NOT APPLE)
-    target_compile_definitions(webrtc_aec3 PRIVATE WEBRTC_LINUX WEBRTC_POSIX)
 elseif(WIN32)
     target_compile_definitions(webrtc_aec3 PRIVATE WEBRTC_WIN)
+    if(MINGW)
+        target_compile_options(webrtc_aec3 PRIVATE -mno-ms-bitfields)
+    endif()
+elseif(UNIX AND NOT APPLE)
+    target_compile_definitions(webrtc_aec3 PRIVATE WEBRTC_LINUX WEBRTC_POSIX)
 endif()
 
 file(GLOB_RECURSE AEC3_SRC
@@ -55,10 +62,15 @@ if(NOT (EFFECTIVE_ARCH MATCHES "x86_64|AMD64|amd64|i686|x86"))
     list(FILTER AEC3_SRC EXCLUDE REGEX ".*_sse2\\.cc$")
     list(FILTER AEC3_SRC EXCLUDE REGEX ".*_sse\\.cc$")
 else()
-    # x86/x86_64: include SSE2 and SSE, need -mavx2 -mfma for AVX2 files
+    # x86/x86_64: include SSE2 and SSE, need -mavx2 -mfma (GCC/Clang) or
+    # /arch:AVX2 (MSVC) for AVX2 files
     file(GLOB_RECURSE AEC3_AVX2_SRC ${WEBRTC_AEC3_DIR}/src/**/*_avx2.cc)
     if(AEC3_AVX2_SRC)
-        set_source_files_properties(${AEC3_AVX2_SRC} PROPERTIES COMPILE_FLAGS "-mavx2 -mfma")
+        if(MSVC)
+            set_source_files_properties(${AEC3_AVX2_SRC} PROPERTIES COMPILE_FLAGS "/arch:AVX2")
+        else()
+            set_source_files_properties(${AEC3_AVX2_SRC} PROPERTIES COMPILE_FLAGS "-mavx2 -mfma")
+        endif()
     endif()
 endif()
 
