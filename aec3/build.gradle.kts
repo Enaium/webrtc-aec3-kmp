@@ -244,77 +244,25 @@ tasks.withType<org.jetbrains.kotlin.gradle.targets.native.tasks.KotlinNativeTest
 }
 
 // ==================== Native: build static C library for each target ====================
-// Kotlin/Native's Linux target ships an old toolchain (glibc 2.19, GCC 8.3).
-// The static C library must be built with it too, otherwise newer glibc
-// symbols (e.g. __libc_single_threaded, __isoc23_*) leak into the final link
-// and fail against K/N's sysroot.
-val konanHome = System.getProperty("konan.home")
-    ?: System.getenv("KONAN_HOME")
-    ?: System.getProperty("user.home")?.let { File(it, ".konan").absolutePath }
-
-fun resolveKonanLinuxToolchain(): File? {
-    val deps = File(konanHome ?: return null, "dependencies")
-    return deps.listFiles()
-        ?.filter { it.isDirectory && it.name.contains("x86_64-unknown-linux-gnu-gcc") }
-        ?.maxByOrNull { it.name }
-}
-
 fun registerNativeBuildTasks(targetName: String, cmakeFlags: List<String> = emptyList()) {
     val outputDir = layout.buildDirectory.dir("native/$targetName").get().asFile
     val cmakeBuildDir = layout.buildDirectory.dir("cmake-$targetName").get().asFile
-    val konanLinuxToolchain = if (targetName == "linuxX64") resolveKonanLinuxToolchain() else null
 
     val configureTask = tasks.register<Exec>("configureNative_$targetName") {
         onlyIf { canBuildNativeTarget(targetName) }
         doFirst {
             cmakeBuildDir.mkdirs()
             outputDir.mkdirs()
-            // Trigger the one-time Kotlin/Native toolchain download/extract so
-            // the static C library is compiled with the bundled glibc 2.19
-            // gcc-8.3 toolchain (matching the K/N linuxX64 sysroot). If the
-            // K/N prebuilt bundle isn't downloaded yet, skip silently: the
-            // cinterop task that depends on this one will download it, and a
-            // subsequent build will pick up the toolchain.
-            if (targetName == "linuxX64" && resolveKonanLinuxToolchain() == null) {
-                val konanBin = File(konanHome, "kotlin-native-prebuilt-linux-x86_64-2.2.10/bin/konanc")
-                if (konanBin.isFile) {
-                    val proc = ProcessBuilder(konanBin.absolutePath, "-version")
-                        .directory(rootDir)
-                        .redirectErrorStream(true)
-                        .start()
-                    proc.inputStream.bufferedReader().useLines { lines ->
-                        lines.forEach { logger.lifecycle(it) }
-                    }
-                    proc.waitFor()
-                }
-            }
         }
         workingDir = cmakeBuildDir
-        val args = mutableListOf(
-            cmakeExecutable, jniDir.absolutePath,
-            "-DCMAKE_BUILD_TYPE=Release",
-            "-DBUILD_JNI=OFF",
-            "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY=${outputDir.absolutePath}",
+        commandLine(
+            listOf(
+                cmakeExecutable, jniDir.absolutePath,
+                "-DCMAKE_BUILD_TYPE=Release",
+                "-DBUILD_JNI=OFF",
+                "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY=${outputDir.absolutePath}",
+            ) + cmakeFlags,
         )
-        val toolchain = resolveKonanLinuxToolchain()
-        if (targetName == "linuxX64" && toolchain != null) {
-            val binDir = toolchain.resolve("bin")
-            val sysroot = toolchain.resolve("x86_64-unknown-linux-gnu/sysroot")
-            args += listOf(
-                "-DCMAKE_SYSTEM_NAME=Linux",
-                "-DCMAKE_SYSTEM_PROCESSOR=x86_64",
-                "-DCMAKE_C_COMPILER=${binDir.resolve("x86_64-unknown-linux-gnu-gcc").absolutePath}",
-                "-DCMAKE_CXX_COMPILER=${binDir.resolve("x86_64-unknown-linux-gnu-g++").absolutePath}",
-                "-DCMAKE_SYSROOT=${sysroot.absolutePath}",
-                "-DCMAKE_C_COMPILER_TARGET=x86_64-unknown-linux-gnu",
-                "-DCMAKE_CXX_COMPILER_TARGET=x86_64-unknown-linux-gnu",
-                "-DCMAKE_FIND_ROOT_PATH=${toolchain.absolutePath}",
-                "-DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER",
-                "-DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY",
-                "-DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY",
-            )
-        }
-        commandLine(args)
     }
 
     val buildTask = tasks.register<Exec>("buildNative_$targetName") {
