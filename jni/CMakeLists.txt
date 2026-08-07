@@ -115,6 +115,11 @@ set_target_properties(webrtc_aec3 PROPERTIES LINKER_LANGUAGE CXX)
 if(BUILD_JNI)
     add_library(webrtc_aec3_jni SHARED ${CMAKE_CURRENT_SOURCE_DIR}/jni_bridge.cpp)
     set_target_properties(webrtc_aec3_jni PROPERTIES OUTPUT_NAME webrtc_aec3_jni)
+    if(WIN32)
+        # MinGW prefixes DLLs with "lib"; strip it so the artifact is
+        # webrtc_aec3_jni.dll everywhere (NativeLoader expects no prefix).
+        set_target_properties(webrtc_aec3_jni PROPERTIES PREFIX "")
+    endif()
 
     if(ANDROID)
         find_library(log-lib log)
