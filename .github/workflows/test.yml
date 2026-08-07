@@ -80,6 +80,13 @@ jobs:
       - name: Run JVM tests
         run: ./gradlew --no-daemon :aec3:jvmTest
 
+      - name: Pre-download Kotlin/Native toolchain
+        # Runs the K/N compiler once so its bundled x86_64-unknown-linux-gnu
+        # gcc-8.3 (glibc 2.19) toolchain is downloaded and extracted before the
+        # static C library is compiled with it.
+        run: |
+          ./gradlew --no-daemon :aec3:compileKotlinLinuxX64 || true
+
       - name: Run native tests
         run: ./gradlew --no-daemon :aec3:linuxX64Test
 

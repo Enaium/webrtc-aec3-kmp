@@ -7,7 +7,7 @@ plugins {
 }
 
 allprojects {
-    group = "cn.enaium.webrtc"
+    group = "cn.enaium.webrtc.aec3"
     val v = rootProject.findProperty("version") as? String
     version = if (v.isNullOrBlank() || v == "unspecified") "1.0-SNAPSHOT" else v
 }

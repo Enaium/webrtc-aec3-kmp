@@ -60,9 +60,10 @@ val configureJniLibrary by tasks.registering(Exec::class) {
         "-DJNI_INCLUDE_DIR_PLATFORM=$jniInclude/win32",
         "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=${outDir.absolutePath}",
         // Statically link the MinGW runtime so the DLL has no dependency on
-        // libstdc++-6.dll / libgcc_s_seh-1.dll / libwinpthread-1.dll, which
-        // are not on the JVM's PATH.
-        "-DCMAKE_SHARED_LINKER_FLAGS=-static-libgcc -static-libstdc++ -static-libwinpthread",
+        // libstdc++-6.dll / libgcc_s_seh-1.dll, which are not on the JVM's
+        // PATH. (-static-libwinpthread is not supported by all MinGW builds;
+        // winpthread-1.dll is only needed when std::thread is used.)
+        "-DCMAKE_SHARED_LINKER_FLAGS=-static-libgcc -static-libstdc++",
     )
 }
 
