@@ -72,10 +72,11 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - name: Install aarch64-linux-gnu cross-compiler
+      - name: Install cross-compilers
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
+            gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
@@ -86,23 +87,42 @@ jobs:
           ls -la "$RUNNER_TEMP/signing-key.gpg"
           head -c 16 "$RUNNER_TEMP/signing-key.gpg" | od -c | head -2
 
-      - name: Publish linux JNI to Maven Local
+      - name: Publish aec3 linuxX64/mingwX64 + linux JNI to Maven Local
         run: >
           ./gradlew --no-daemon --stacktrace
           -Psigning.keyId="${{ secrets.SIGNING_KEY_ID }}"
           -Psigning.secretKeyRingFile="${{ runner.temp }}/signing-key.gpg"
           -Psigning.password="${{ secrets.SIGNING_PASSWORD }}"
+          :aec3:publishLinuxX64PublicationToMavenLocal
+          :aec3:publishMingwX64PublicationToMavenLocal
           :jni-jvm-linux-x86_64:publishToMavenLocal
           :jni-jvm-linux-aarch64:publishToMavenLocal
 
       - name: Run JVM tests
         run: ./gradlew --no-daemon :aec3:jvmTest
 
-      - name: Compile native klib (linuxX64)
+      - name: Compile native klibs (linuxX64, mingwX64)
         # webrtc-aec3 requires C++20 (std::span), but Kotlin/Native's Linux
         # toolchain ships gcc-8.3/libstdc++ which cannot link the test binary.
-        # Compiling the klib (bindings) still validates the target.
-        run: ./gradlew --no-daemon :aec3:compileKotlinLinuxX64
+        # Compiling the klibs still validates that cinterop embeds the static
+        # libraries built on this host (linuxX64 natively, mingwX64 via MinGW).
+        run: >
+          ./gradlew --no-daemon
+          :aec3:compileKotlinLinuxX64
+          :aec3:compileKotlinMingwX64
+
+      - name: Verify embedded static libraries
+        run: |
+          for t in linuxx64 mingwx64; do
+            klib=$(find ~/.m2/repository/cn/enaium/webrtc/aec3 -name "webrtc-aec3-kmp-$t-1.0.0-cinterop-webrtcAec3.klib" | head -1)
+            echo "=== $t: $klib ==="
+            if unzip -l "$klib" | grep -q "\.a$"; then
+              echo "OK: static library embedded"
+            else
+              echo "FAIL: no static library in $t klib"
+              exit 1
+            fi
+          done
 
   test-windows:
     name: Test Windows x64
