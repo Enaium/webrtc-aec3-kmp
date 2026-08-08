@@ -474,6 +474,7 @@ tasks.matching { it.name.startsWith("merge") && it.name.contains("JniLibFolders"
     .configureEach { dependsOn(buildAndroidJniLibs) }
 
 // ==================== Publishing ====================
+// Version is read from VERSION_NAME in gradle.properties (or -Pversion).
 mavenPublishing {
     publishToMavenCentral(automaticRelease = true)
     signAllPublications()
@@ -481,7 +482,9 @@ mavenPublishing {
     coordinates(
         groupId = group.toString(),
         artifactId = "webrtc-aec3-kmp",
-        version = version.toString(),
+        // null -> the plugin falls back to project.version (VERSION_NAME in
+        // gradle.properties or -Pversion on the command line)
+        version = null,
     )
 
     pom {
