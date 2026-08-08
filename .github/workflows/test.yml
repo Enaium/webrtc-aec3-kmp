@@ -205,12 +205,16 @@ jobs:
           head -c 16 "$RUNNER_TEMP/signing-key.gpg" | od -c | head -2
 
       - name: Publish all platforms to Maven Local
+        # android/jvm/Apple targets only; linuxX64/mingwX64 are published by
+        # the test-linux job (they need the native toolchains installed here).
         run: >
           ./gradlew --no-daemon --stacktrace
           -Psigning.keyId="${{ secrets.SIGNING_KEY_ID }}"
           -Psigning.secretKeyRingFile="${{ runner.temp }}/signing-key.gpg"
           -Psigning.password="${{ secrets.SIGNING_PASSWORD }}"
           :aec3:publishToMavenLocal
+          -x :aec3:publishLinuxX64PublicationToMavenLocal
+          -x :aec3:publishMingwX64PublicationToMavenLocal
 
       - name: Assemble Android app and androidTest APK
         run: ./gradlew --no-daemon :example:assembleDebug :example:assembleDebugAndroidTest
