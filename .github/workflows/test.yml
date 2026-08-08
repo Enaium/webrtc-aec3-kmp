@@ -141,6 +141,7 @@ jobs:
           Format-Hex -Path "$env:RUNNER_TEMP\signing-key.gpg" -Count 16
 
       - name: Publish windows JNI to Maven Local
+        shell: cmd
         run: >
           ./gradlew --no-daemon --stacktrace
           -Psigning.keyId="${{ secrets.SIGNING_KEY_ID }}"

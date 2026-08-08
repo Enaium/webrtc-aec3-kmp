@@ -133,6 +133,7 @@ jobs:
           Get-Item "$env:RUNNER_TEMP\signing-key.gpg" | Select-Object Length
 
       - name: Publish :jni-jvm-windows-x86_64
+        shell: cmd
         run: >
           ./gradlew --no-daemon --stacktrace
           -Psigning.keyId="${{ secrets.SIGNING_KEY_ID }}"
