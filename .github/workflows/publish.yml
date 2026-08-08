@@ -49,9 +49,9 @@ jobs:
       - name: Publish :aec3 and :jni-jvm-darwin-*
         run: >
           ./gradlew --no-daemon --stacktrace
-          -Psigning.keyId=${{ secrets.SIGNING_KEY_ID }}
-          -Psigning.secretKeyRingFile=${{ runner.temp }}/signing-key.gpg
-          -Psigning.password=${{ secrets.SIGNING_PASSWORD }}
+          -Psigning.keyId="${{ secrets.SIGNING_KEY_ID }}"
+          -Psigning.secretKeyRingFile="${{ runner.temp }}/signing-key.gpg"
+          -Psigning.password="${{ secrets.SIGNING_PASSWORD }}"
           :aec3:publishAllPublicationsToMavenCentralRepository
           :jni-jvm-darwin-aarch64:publishToMavenCentral
           :jni-jvm-darwin-x86_64:publishToMavenCentral
@@ -91,9 +91,9 @@ jobs:
       - name: Publish :jni-jvm-linux-{x86_64,aarch64}
         run: >
           ./gradlew --no-daemon --stacktrace
-          -Psigning.keyId=${{ secrets.SIGNING_KEY_ID }}
-          -Psigning.secretKeyRingFile=${{ runner.temp }}/signing-key.gpg
-          -Psigning.password=${{ secrets.SIGNING_PASSWORD }}
+          -Psigning.keyId="${{ secrets.SIGNING_KEY_ID }}"
+          -Psigning.secretKeyRingFile="${{ runner.temp }}/signing-key.gpg"
+          -Psigning.password="${{ secrets.SIGNING_PASSWORD }}"
           :jni-jvm-linux-x86_64:publishToMavenCentral
           :jni-jvm-linux-aarch64:publishToMavenCentral
           --continue
@@ -135,9 +135,9 @@ jobs:
       - name: Publish :jni-jvm-windows-x86_64
         run: >
           ./gradlew --no-daemon --stacktrace
-          -Psigning.keyId=${{ secrets.SIGNING_KEY_ID }}
-          -Psigning.secretKeyRingFile=${{ runner.temp }}\signing-key.gpg
-          -Psigning.password=${{ secrets.SIGNING_PASSWORD }}
+          -Psigning.keyId="${{ secrets.SIGNING_KEY_ID }}"
+          -Psigning.secretKeyRingFile="${{ runner.temp }}\signing-key.gpg"
+          -Psigning.password="${{ secrets.SIGNING_PASSWORD }}"
           :jni-jvm-windows-x86_64:publishToMavenCentral
           --continue
         env:

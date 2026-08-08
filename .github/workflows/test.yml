@@ -44,9 +44,9 @@ jobs:
       - name: Publish all platforms to Maven Local
         run: >
           ./gradlew --no-daemon --stacktrace
-          -Psigning.keyId=${{ secrets.SIGNING_KEY_ID }}
-          -Psigning.secretKeyRingFile=${{ runner.temp }}/signing-key.gpg
-          -Psigning.password=${{ secrets.SIGNING_PASSWORD }}
+          -Psigning.keyId="${{ secrets.SIGNING_KEY_ID }}"
+          -Psigning.secretKeyRingFile="${{ runner.temp }}/signing-key.gpg"
+          -Psigning.password="${{ secrets.SIGNING_PASSWORD }}"
           :aec3:publishToMavenLocal
           :jni-jvm-darwin-aarch64:publishToMavenLocal
           :jni-jvm-darwin-x86_64:publishToMavenLocal
@@ -89,9 +89,9 @@ jobs:
       - name: Publish linux JNI to Maven Local
         run: >
           ./gradlew --no-daemon --stacktrace
-          -Psigning.keyId=${{ secrets.SIGNING_KEY_ID }}
-          -Psigning.secretKeyRingFile=${{ runner.temp }}/signing-key.gpg
-          -Psigning.password=${{ secrets.SIGNING_PASSWORD }}
+          -Psigning.keyId="${{ secrets.SIGNING_KEY_ID }}"
+          -Psigning.secretKeyRingFile="${{ runner.temp }}/signing-key.gpg"
+          -Psigning.password="${{ secrets.SIGNING_PASSWORD }}"
           :jni-jvm-linux-x86_64:publishToMavenLocal
           :jni-jvm-linux-aarch64:publishToMavenLocal
 
@@ -143,9 +143,9 @@ jobs:
       - name: Publish windows JNI to Maven Local
         run: >
           ./gradlew --no-daemon --stacktrace
-          -Psigning.keyId=${{ secrets.SIGNING_KEY_ID }}
-          -Psigning.secretKeyRingFile=${{ runner.temp }}\signing-key.gpg
-          -Psigning.password=${{ secrets.SIGNING_PASSWORD }}
+          -Psigning.keyId="${{ secrets.SIGNING_KEY_ID }}"
+          -Psigning.secretKeyRingFile="${{ runner.temp }}\signing-key.gpg"
+          -Psigning.password="${{ secrets.SIGNING_PASSWORD }}"
           :jni-jvm-windows-x86_64:publishToMavenLocal
 
       - name: Run JVM tests
@@ -186,9 +186,9 @@ jobs:
       - name: Publish all platforms to Maven Local
         run: >
           ./gradlew --no-daemon --stacktrace
-          -Psigning.keyId=${{ secrets.SIGNING_KEY_ID }}
-          -Psigning.secretKeyRingFile=${{ runner.temp }}/signing-key.gpg
-          -Psigning.password=${{ secrets.SIGNING_PASSWORD }}
+          -Psigning.keyId="${{ secrets.SIGNING_KEY_ID }}"
+          -Psigning.secretKeyRingFile="${{ runner.temp }}/signing-key.gpg"
+          -Psigning.password="${{ secrets.SIGNING_PASSWORD }}"
           :aec3:publishToMavenLocal
 
       - name: Assemble Android app and androidTest APK
