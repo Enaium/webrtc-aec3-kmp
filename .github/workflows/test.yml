@@ -113,8 +113,8 @@ jobs:
 
       - name: Verify embedded static libraries
         run: |
-          for t in linuxx64 mingwx64; do
-            klib=$(find ~/.m2/repository/cn/enaium/webrtc/aec3 -name "webrtc-aec3-kmp-$t-1.0.0-cinterop-webrtcAec3.klib" | head -1)
+          for t in linuxX64 mingwX64; do
+            klib=$(find aec3/build -name "*${t}Cinterop-webrtcAec3*.klib" | grep -v asc | head -1)
             echo "=== $t: $klib ==="
             if unzip -l "$klib" | grep -q "\.a$"; then
               echo "OK: static library embedded"
