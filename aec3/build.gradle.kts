@@ -253,6 +253,24 @@ fun registerNativeBuildTasks(targetName: String, cmakeFlags: List<String> = empt
         doFirst {
             cmakeBuildDir.mkdirs()
             outputDir.mkdirs()
+            if (targetName == "mingwX64" && hostOs.isLinux) {
+                // webRTC includes <Windows.h> (capital W), but on Linux the
+                // mingw-w64 header is windows.h (lowercase) and the
+                // case-sensitive filesystem can't resolve it. Create an
+                // alias symlink in the mingw include dir (needs root).
+                val includeDir = File("/usr/x86_64-w64-mingw32/include")
+                val lower = File(includeDir, "windows.h")
+                val upper = File(includeDir, "Windows.h")
+                if (lower.isFile && !upper.exists()) {
+                    val proc = ProcessBuilder("sudo", "ln", "-s", "windows.h", upper.absolutePath)
+                        .redirectErrorStream(true)
+                        .start()
+                    proc.inputStream.bufferedReader().useLines { lines ->
+                        lines.forEach { logger.lifecycle(it) }
+                    }
+                    proc.waitFor()
+                }
+            }
         }
         workingDir = cmakeBuildDir
         commandLine(
