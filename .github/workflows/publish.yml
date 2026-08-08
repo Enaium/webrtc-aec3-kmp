@@ -47,18 +47,18 @@ jobs:
           ls -la "$RUNNER_TEMP/signing-key.gpg"
 
       - name: Publish :aec3 and :jni-jvm-darwin-*
-        env:
-          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
-          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
-          ORG_GRADLE_PROJECT_signingKeyId: ${{ secrets.SIGNING_KEY_ID }}
-          ORG_GRADLE_PROJECT_signingSecretKeyRingFile: ${{ runner.temp }}/signing-key.gpg
-          ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.SIGNING_PASSWORD }}
         run: >
           ./gradlew --no-daemon --stacktrace
+          -Psigning.keyId=${{ secrets.SIGNING_KEY_ID }}
+          -Psigning.secretKeyRingFile=${{ runner.temp }}/signing-key.gpg
+          -Psigning.password=${{ secrets.SIGNING_PASSWORD }}
           :aec3:publishAllPublicationsToMavenCentralRepository
           :jni-jvm-darwin-aarch64:publishToMavenCentral
           :jni-jvm-darwin-x86_64:publishToMavenCentral
           --continue
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
 
   publish-linux:
     name: Publish Linux JNI
@@ -89,17 +89,17 @@ jobs:
           ls -la "$RUNNER_TEMP/signing-key.gpg"
 
       - name: Publish :jni-jvm-linux-{x86_64,aarch64}
-        env:
-          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
-          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
-          ORG_GRADLE_PROJECT_signingKeyId: ${{ secrets.SIGNING_KEY_ID }}
-          ORG_GRADLE_PROJECT_signingSecretKeyRingFile: ${{ runner.temp }}/signing-key.gpg
-          ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.SIGNING_PASSWORD }}
         run: >
           ./gradlew --no-daemon --stacktrace
+          -Psigning.keyId=${{ secrets.SIGNING_KEY_ID }}
+          -Psigning.secretKeyRingFile=${{ runner.temp }}/signing-key.gpg
+          -Psigning.password=${{ secrets.SIGNING_PASSWORD }}
           :jni-jvm-linux-x86_64:publishToMavenCentral
           :jni-jvm-linux-aarch64:publishToMavenCentral
           --continue
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
 
   publish-windows:
     name: Publish Windows JNI
@@ -133,16 +133,16 @@ jobs:
           Get-Item "$env:RUNNER_TEMP\signing-key.gpg" | Select-Object Length
 
       - name: Publish :jni-jvm-windows-x86_64
+        run: >
+          ./gradlew --no-daemon --stacktrace
+          -Psigning.keyId=${{ secrets.SIGNING_KEY_ID }}
+          -Psigning.secretKeyRingFile=${{ runner.temp }}\signing-key.gpg
+          -Psigning.password=${{ secrets.SIGNING_PASSWORD }}
+          :jni-jvm-windows-x86_64:publishToMavenCentral
+          --continue
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
-          ORG_GRADLE_PROJECT_signingKeyId: ${{ secrets.SIGNING_KEY_ID }}
-          ORG_GRADLE_PROJECT_signingSecretKeyRingFile: ${{ runner.temp }}\signing-key.gpg
-          ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.SIGNING_PASSWORD }}
-        run: >
-          ./gradlew --no-daemon --stacktrace
-          :jni-jvm-windows-x86_64:publishToMavenCentral
-          --continue
 
   close-and-release:
     name: Close and release

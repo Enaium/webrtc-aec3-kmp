@@ -42,12 +42,11 @@ jobs:
           head -c 16 "$RUNNER_TEMP/signing-key.gpg" | od -c | head -2
 
       - name: Publish all platforms to Maven Local
-        env:
-          ORG_GRADLE_PROJECT_signingKeyId: ${{ secrets.SIGNING_KEY_ID }}
-          ORG_GRADLE_PROJECT_signingSecretKeyRingFile: ${{ runner.temp }}/signing-key.gpg
-          ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.SIGNING_PASSWORD }}
         run: >
           ./gradlew --no-daemon --stacktrace
+          -Psigning.keyId=${{ secrets.SIGNING_KEY_ID }}
+          -Psigning.secretKeyRingFile=${{ runner.temp }}/signing-key.gpg
+          -Psigning.password=${{ secrets.SIGNING_PASSWORD }}
           :aec3:publishToMavenLocal
           :jni-jvm-darwin-aarch64:publishToMavenLocal
           :jni-jvm-darwin-x86_64:publishToMavenLocal
@@ -87,32 +86,12 @@ jobs:
           ls -la "$RUNNER_TEMP/signing-key.gpg"
           head -c 16 "$RUNNER_TEMP/signing-key.gpg" | od -c | head -2
 
-      - name: Diagnose signing properties
-        env:
-          ORG_GRADLE_PROJECT_signingKeyId: ${{ secrets.SIGNING_KEY_ID }}
-          ORG_GRADLE_PROJECT_signingSecretKeyRingFile: ${{ runner.temp }}/signing-key.gpg
-          ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.SIGNING_PASSWORD }}
-        run: |
-          cat > diag.gradle << 'EOF'
-          allprojects {
-              afterEvaluate {
-                  def keyId = providers.gradleProperty("signing.keyId").orNull
-                  def ring = providers.gradleProperty("signing.secretKeyRingFile").orNull
-                  def pass = providers.gradleProperty("signing.password").orNull
-                  println("SIGNING-DIAG ${path} keyId=${keyId} ring=${ring} passSet=${pass != null}")
-              }
-          }
-          EOF
-          ./gradlew --no-daemon -I diag.gradle :jni-jvm-linux-x86_64:help
-          rm diag.gradle
-
       - name: Publish linux JNI to Maven Local
-        env:
-          ORG_GRADLE_PROJECT_signingKeyId: ${{ secrets.SIGNING_KEY_ID }}
-          ORG_GRADLE_PROJECT_signingSecretKeyRingFile: ${{ runner.temp }}/signing-key.gpg
-          ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.SIGNING_PASSWORD }}
         run: >
           ./gradlew --no-daemon --stacktrace
+          -Psigning.keyId=${{ secrets.SIGNING_KEY_ID }}
+          -Psigning.secretKeyRingFile=${{ runner.temp }}/signing-key.gpg
+          -Psigning.password=${{ secrets.SIGNING_PASSWORD }}
           :jni-jvm-linux-x86_64:publishToMavenLocal
           :jni-jvm-linux-aarch64:publishToMavenLocal
 
@@ -162,12 +141,11 @@ jobs:
           Format-Hex -Path "$env:RUNNER_TEMP\signing-key.gpg" -Count 16
 
       - name: Publish windows JNI to Maven Local
-        env:
-          ORG_GRADLE_PROJECT_signingKeyId: ${{ secrets.SIGNING_KEY_ID }}
-          ORG_GRADLE_PROJECT_signingSecretKeyRingFile: ${{ runner.temp }}\signing-key.gpg
-          ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.SIGNING_PASSWORD }}
         run: >
           ./gradlew --no-daemon --stacktrace
+          -Psigning.keyId=${{ secrets.SIGNING_KEY_ID }}
+          -Psigning.secretKeyRingFile=${{ runner.temp }}\signing-key.gpg
+          -Psigning.password=${{ secrets.SIGNING_PASSWORD }}
           :jni-jvm-windows-x86_64:publishToMavenLocal
 
       - name: Run JVM tests
@@ -206,11 +184,12 @@ jobs:
           head -c 16 "$RUNNER_TEMP/signing-key.gpg" | od -c | head -2
 
       - name: Publish all platforms to Maven Local
-        env:
-          ORG_GRADLE_PROJECT_signingKeyId: ${{ secrets.SIGNING_KEY_ID }}
-          ORG_GRADLE_PROJECT_signingSecretKeyRingFile: ${{ runner.temp }}/signing-key.gpg
-          ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.SIGNING_PASSWORD }}
-        run: ./gradlew --no-daemon --stacktrace :aec3:publishToMavenLocal
+        run: >
+          ./gradlew --no-daemon --stacktrace
+          -Psigning.keyId=${{ secrets.SIGNING_KEY_ID }}
+          -Psigning.secretKeyRingFile=${{ runner.temp }}/signing-key.gpg
+          -Psigning.password=${{ secrets.SIGNING_PASSWORD }}
+          :aec3:publishToMavenLocal
 
       - name: Assemble Android app and androidTest APK
         run: ./gradlew --no-daemon :example:assembleDebug :example:assembleDebugAndroidTest
