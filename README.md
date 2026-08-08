@@ -25,7 +25,7 @@ Kotlin Multiplatform bindings for the [WebRTC AEC3](https://github.com/Enaium/we
 **Kotlin Multiplatform / Android:**
 
 ```kotlin
-implementation("cn.enaium.webrtc.aec3:webrtc-aec3-kmp:1.0.0")
+implementation("cn.enaium.webrtc.aec3:webrtc-aec3-kmp:1.0.1")
 ```
 
 **JVM:** the right native binary is resolved automatically — the `webrtc-aec3-kmp-jvm` artifact pulls in the matching `:jni-jvm-*` sibling on the classpath:
