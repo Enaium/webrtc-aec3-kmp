@@ -389,12 +389,13 @@ if (hostOs.isMacOsX) {
             "-DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc",
             "-DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++",
             "-DCMAKE_RC_COMPILER=x86_64-w64-mingw32-windres",
+            // Point gcc at the MinGW-w64 sysroot so Windows.h, stdlib.h and
+            // the CRT are found (and #include_next in libstdc++ resolves).
+            "-DCMAKE_SYSROOT=/usr/x86_64-w64-mingw32",
             "-DCMAKE_FIND_ROOT_PATH=/usr/x86_64-w64-mingw32",
             "-DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER",
             "-DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY",
             "-DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY",
-            "-DCMAKE_C_FLAGS=-isystem /usr/x86_64-w64-mingw32/include",
-            "-DCMAKE_CXX_FLAGS=-isystem /usr/x86_64-w64-mingw32/include",
         ),
     )
 }
