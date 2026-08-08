@@ -40,6 +40,19 @@ internal object NativeLoader {
     private const val RESOURCE_BASE = "/cn/enaium/webrtc/aec3/native"
 
     fun load() {
+        // Android's os.name is "Linux", so detect it via the android.os.Build
+        // class which only exists on the Android runtime. On Android the .so
+        // ships inside the AAR's jniLibs and is loaded by name.
+        val isAndroid = runCatching {
+            Class.forName("android.os.Build")
+            true
+        }.getOrDefault(false)
+
+        if (isAndroid) {
+            System.loadLibrary(LIB_NAME)
+            return
+        }
+
         val classifier = detectClassifier()
         // Windows DLLs don't use the "lib" prefix (webrtc_aec3_jni.dll),
         // while Unix shared libraries do (libwebrtc_aec3_jni.so/.dylib).
@@ -48,14 +61,8 @@ internal object NativeLoader {
         val resourcePath = "$RESOURCE_BASE/$classifier/$libFile"
         val stream = NativeLoader::class.java.getResourceAsStream(resourcePath)
         if (stream == null) {
-            // Android loads from the AAR's jniLibs via System.loadLibrary;
-            // there is no classpath resource there. Anywhere else a missing
-            // resource is an error worth reporting.
-            val osName = System.getProperty("os.name").orEmpty().lowercase()
-            if (osName.contains("android")) {
-                System.loadLibrary(LIB_NAME)
-                return
-            }
+            // Desktop JVM: the matching jni-jvm artifact is missing from the
+            // classpath — report it instead of silently failing.
             val found = NativeLoader::class.java.classLoader
                 ?.getResources("cn/enaium/webrtc/aec3/native")
                 ?.toList()
