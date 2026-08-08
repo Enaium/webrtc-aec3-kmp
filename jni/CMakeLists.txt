@@ -31,6 +31,10 @@ elseif(WIN32)
     target_compile_definitions(webrtc_aec3 PRIVATE WEBRTC_WIN)
     if(MINGW)
         target_compile_options(webrtc_aec3 PRIVATE -mno-ms-bitfields)
+        # MinGW-w64 cross-compilers don't add their sysroot include dir to
+        # the default search path; add it explicitly so Windows.h and the
+        # mingw-w64 libc headers resolve.
+        target_include_directories(webrtc_aec3 SYSTEM PRIVATE /usr/x86_64-w64-mingw32/include)
     endif()
 elseif(UNIX AND NOT APPLE)
     target_compile_definitions(webrtc_aec3 PRIVATE WEBRTC_LINUX WEBRTC_POSIX)
