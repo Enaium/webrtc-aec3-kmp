@@ -379,6 +379,8 @@ if (hostOs.isMacOsX) {
     registerNativeBuildTasks("linuxX64")
     // mingwX64 is cross-compiled with MinGW-w64; install it with
     // `sudo apt-get install gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64`.
+    // CMAKE_SYSTEM_NAME=Windows makes CMake cross-compile; the MinGW sysroot
+    // at /usr/x86_64-w64-mingw32 provides Windows.h and the CRT.
     registerNativeBuildTasks(
         "mingwX64",
         listOf(
@@ -387,6 +389,12 @@ if (hostOs.isMacOsX) {
             "-DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc",
             "-DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++",
             "-DCMAKE_RC_COMPILER=x86_64-w64-mingw32-windres",
+            "-DCMAKE_FIND_ROOT_PATH=/usr/x86_64-w64-mingw32",
+            "-DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER",
+            "-DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY",
+            "-DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY",
+            "-DCMAKE_C_FLAGS=-isystem /usr/x86_64-w64-mingw32/include",
+            "-DCMAKE_CXX_FLAGS=-isystem /usr/x86_64-w64-mingw32/include",
         ),
     )
 }
