@@ -130,6 +130,12 @@ if(BUILD_JNI)
         if(log-lib)
             target_link_libraries(webrtc_aec3_jni PRIVATE ${log-lib})
         endif()
+        # Align the .so to 16KB pages, required for 16KB page-size devices
+        # (Android 15+); see https://developer.android.com/guide/practices/page-sizes.
+        target_link_options(webrtc_aec3_jni PRIVATE
+            "-Wl,-z,max-page-size=16384"
+            "-Wl,-z,common-page-size=16384"
+        )
     elseif(JNI_INCLUDE_DIR)
         target_include_directories(webrtc_aec3_jni PRIVATE ${JNI_INCLUDE_DIR})
         if(JNI_INCLUDE_DIR_PLATFORM)
