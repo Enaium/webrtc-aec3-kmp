@@ -57,6 +57,24 @@ jobs:
       - name: Run native tests
         run: ./gradlew --no-daemon :aec3:macosArm64Test
 
+      - name: Build the waveform example
+        # The example needs audio devices at runtime, which the runners do not
+        # have, so the compile and link steps are validated here: the JVM
+        # classes plus the full native executable (which is what proves the
+        # entry point and the static library linkage).
+        run: >
+          ./gradlew --no-daemon
+          :examples:waveform:compileKotlinJvm
+          :examples:waveform:linkDebugExecutableMacosArm64
+
+      - name: Smoke run the waveform example (headless)
+        # SDL's dummy video driver keeps the window off-screen; the example
+        # renders a bounded number of frames and exits. Runners have no audio
+        # device, which the pipeline reports and retries past.
+        run: >
+          SDL_VIDEO_DRIVER=dummy ./gradlew --no-daemon
+          :examples:waveform:jvmRun --args="--frames 120"
+
   test-linux:
     name: Test Linux x64
     runs-on: ubuntu-latest
@@ -110,6 +128,14 @@ jobs:
           ./gradlew --no-daemon
           :aec3:compileKotlinLinuxX64
           :aec3:compileKotlinMingwX64
+
+      - name: Compile the waveform example (linuxX64, mingwX64)
+        # The example's own native targets for the two ABIs that cross-compile
+        # from Linux; the executable itself is only linked on a matching host.
+        run: >
+          ./gradlew --no-daemon
+          :examples:waveform:compileKotlinLinuxX64
+          :examples:waveform:compileKotlinMingwX64
 
       - name: Verify embedded static libraries
         run: |
@@ -204,17 +230,39 @@ jobs:
           ls -la "$RUNNER_TEMP/signing-key.gpg"
           head -c 16 "$RUNNER_TEMP/signing-key.gpg" | od -c | head -2
 
-      - name: Publish all platforms to Maven Local
-        # android/jvm/Apple targets only; linuxX64/mingwX64 are published by
-        # the test-linux job (they need the native toolchains installed here).
+      - name: Publish android AAR + metadata to Maven Local
+        # Only the metadata + android publications: the Apple and androidNative
+        # target klibs are published by the jobs whose runners can build their
+        # static libraries. The basic example consumes the published artifact,
+        # so it needs the AAR in the local repository before it is assembled.
         run: >
           ./gradlew --no-daemon --stacktrace
           -Psigning.keyId="${{ secrets.SIGNING_KEY_ID }}"
           -Psigning.secretKeyRingFile="${{ runner.temp }}/signing-key.gpg"
           -Psigning.password="${{ secrets.SIGNING_PASSWORD }}"
-          :aec3:publishToMavenLocal
-          -x :aec3:publishLinuxX64PublicationToMavenLocal
-          -x :aec3:publishMingwX64PublicationToMavenLocal
+          :aec3:publishKotlinMultiplatformPublicationToMavenLocal
+          :aec3:publishAndroidPublicationToMavenLocal
 
-      - name: Assemble Android app and androidTest APK
-        run: ./gradlew --no-daemon :example:assembleDebug :example:assembleDebugAndroidTest
+      - name: Assemble example apps and androidTest APK
+        run: >
+          ./gradlew --no-daemon
+          :examples:basic:assembleDebug
+          :examples:basic:assembleDebugAndroidTest
+          :examples:waveform:android:assembleDebug
+
+      - name: Verify embedded static libraries (androidNative)
+        # The APK above linked libmain.so for every ABI, which cross-compiled
+        # libwebrtc_aec3.a with the NDK and embedded it into each androidNative
+        # cinterop klib (the same klibs the publish job ships). Android native
+        # cinterop output stays unpacked, so the embedded archive is checked
+        # where the linker finds it.
+        run: |
+          for t in androidNativeArm64 androidNativeArm32 androidNativeX64 androidNativeX86; do
+            lib=$(find "aec3/build/classes/kotlin/$t" -name libwebrtc_aec3.a | head -1)
+            echo "=== $t: $lib ==="
+            if [ -z "$lib" ]; then
+              echo "FAIL: no static library in the $t cinterop klib"
+              exit 1
+            fi
+            echo "OK: static library embedded ($(du -h "$lib" | cut -f1))"
+          done

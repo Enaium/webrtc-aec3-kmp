@@ -1,5 +1,7 @@
 # webrtc-aec3-kmp
 
+![](https://img.cdn1.vip/i/6aaa8cb7a00c2_1789562039.webp)
+
 [![Maven Central](https://img.shields.io/maven-central/v/cn.enaium.webrtc.aec3/webrtc-aec3-kmp?label=Maven%20Central)](https://central.sonatype.com/artifact/cn.enaium.webrtc.aec3/webrtc-aec3-kmp)
 [![License](https://img.shields.io/github/license/Enaium/webrtc-aec3-kmp)](https://github.com/Enaium/webrtc-aec3-kmp/blob/main/LICENSE)
 [![GitHub Actions](https://img.shields.io/github/actions/workflow/status/Enaium/webrtc-aec3-kmp/test.yml?label=test)](https://github.com/Enaium/webrtc-aec3-kmp/actions/workflows/test.yml)
@@ -12,6 +14,7 @@ Kotlin Multiplatform bindings for the [WebRTC AEC3](https://github.com/Enaium/we
 | Platform       | Targets                                                     | Mechanism                                  |
 | -------------- | ----------------------------------------------------------- | ------------------------------------------ |
 | **Android**    | arm64-v8a, armeabi-v7a, x86, x86_64                          | JNI (shared library via CMake)             |
+| **Android (Kotlin/Native)** | arm64-v8a, armeabi-v7a, x86, x86_64             | Kotlin/Native cinterop (static library)    |
 | **JVM**        | Linux x86_64/aarch64, macOS arm64/x86_64, Windows x86_64     | JNI (per-OS/arch JAR resource, auto-extracted by `NativeLoader`) |
 | **iOS**        | arm64, x64, simulatorArm64                                   | Kotlin/Native cinterop (static library)    |
 | **macOS**      | arm64, x86_64                                                | Kotlin/Native cinterop (static library)    |
@@ -25,8 +28,10 @@ Kotlin Multiplatform bindings for the [WebRTC AEC3](https://github.com/Enaium/we
 **Kotlin Multiplatform / Android:**
 
 ```kotlin
-implementation("cn.enaium.webrtc.aec3:webrtc-aec3-kmp:1.0.2")
+implementation("cn.enaium.webrtc.aec3:webrtc-aec3-kmp:1.0.3")
 ```
+
+> Built with Kotlin 2.4.10: consumers need a Kotlin 2.4+ compiler, since older ones cannot read the 2.4 metadata of the published artifacts.
 
 **JVM:** the right native binary is resolved automatically — the `webrtc-aec3-kmp-jvm` artifact pulls in the matching `:jni-jvm-*` sibling on the classpath:
 
@@ -107,15 +112,37 @@ fun createAec3EchoControl(
 | `getMetrics(): Aec3Metrics`                 | ERL, ERLE and estimated delay                          |
 | `setAudioBufferDelay(delayMs)`              | Tune the render→capture delay estimate                 |
 
-## Example
+`sampleRate` must be 16000, 32000 or 48000 Hz. Buffers hold one 10 ms frame (`sampleRate / 100` samples per channel) and carry samples in the int16 range, i.e. `Short` values as floats — not `-1..1`.
 
-The [`example/`](example/) module is an Android app with a Jetpack Compose UI:
+## Examples
+
+### [`examples/basic`](examples/basic/) — Android Compose demo
+
+An Android app with a Jetpack Compose UI:
 
 - **Echo cancellation switch** — toggle AEC on/off
 - **Delay slider** (0–200 ms) — live `setAudioBufferDelay` tuning
 - **Start/Stop button** — real-time `AudioRecord → AEC3 → AudioTrack` loopback
 
 It plays a 440 Hz reference tone through the speaker, records the microphone, and cancels the acoustic echo in real time, showing ERL/ERLE/delay metrics.
+
+### [`examples/waveform`](examples/waveform/) — live waveform viewer
+
+A Kotlin Multiplatform app (JVM desktop, macOS/Linux/Windows native executables and Android via [`examples/waveform/android`](examples/waveform/android/)) that draws the AEC3 signals with Dear ImGui + ImPlot in an SDL3 window:
+
+- **Three aligned traces** — the far-end (render) signal, the raw microphone capture with the echo in it, and the echo-cancelled output, over a 100 ms–10 s sliding window
+- **SDL_GPU rendering** — the window is drawn with the imgui-kmp SDL_GPU backend (Vulkan on Android and desktop, Metal on macOS); where SDL_GPU is unavailable (headless CI runs on SDL's dummy driver) the log says so and the 2D renderer takes over
+- **Audible result** — the far-end signal is played through the speaker (that is what creates the echo) and the echo-cancelled capture is played back through the output device, so the cancellation can be heard and not just seen; both are toggled from the UI
+- **Far-end sources** — 440 Hz tone, broadband white noise (which converges the filter across the whole band), or **Microphone (loopback)**: the real capture is fed through AEC3 and played back through the speaker, with the played samples as the render reference, so AEC3 removes the loudspeaker→microphone part of the loop. The level slider is the loop gain in that mode, and the loop stays closed when AEC is switched off, which is what makes the switch audible
+- **AEC3 controls** — AEC on/off, render→capture delay, far-end level and window length
+- **Metrics** — ERL, ERLE and the estimated delay, plus peak levels in dBFS
+
+```bash
+./gradlew :examples:waveform:jvmRun                  # desktop JVM
+./gradlew :examples:waveform:android:assembleDebug   # Android APK
+```
+
+Native executables (`./examples/waveform/build/bin/<target>/<mode>Executable/waveform.kexe`) take `AEC3_KMP_FRAMES` to bound a headless run; the JVM entry takes `--frames N`.
 
 ## Building from Source
 
@@ -168,7 +195,10 @@ webrtc-aec3-kmp/
 │       ├── androidMain/      # Android actual (JNI)
 │       ├── nativeMain/       # Native actual (cinterop)
 │       └── nativeInterop/cinterop/
-├── example/                  # Android Compose demo (loopback + AEC switch)
+├── examples/
+│   ├── basic/                # Android Compose demo (loopback + AEC switch)
+│   └── waveform/             # KMP ImGui/ImPlot waveform viewer
+│       └── android/          # APK wrapping the androidNative libmain.so
 ├── scripts/                  # Native build helpers
 └── .github/workflows/        # publish + test
 ```

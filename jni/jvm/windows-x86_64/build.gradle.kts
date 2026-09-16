@@ -30,6 +30,10 @@ val host = OperatingSystem.current()
 val hostArch = System.getProperty("os.arch").lowercase()
 val canBuildHere = host.isWindows && (hostArch == "amd64" || hostArch == "x86_64")
 
+// Resolved once in the root build: an IDE-launched Gradle daemon has a minimal
+// PATH, on which `cmake` is not found.
+val cmakeExecutable: String = rootProject.extra["cmakeExecutable"] as String
+
 // On Windows the MinGW toolchain is used (git-bash ships with it, or install
 // via MSYS2). MSVC is avoided because the webrtc-aec3 C++ code relies on
 // GCC/Clang extensions.
@@ -52,7 +56,7 @@ val configureJniLibrary by tasks.registering(Exec::class) {
     val javaHome = System.getProperty("java.home") ?: System.getenv("JAVA_HOME") ?: ""
     val jniInclude = if (javaHome.isNotEmpty()) "$javaHome/include" else ""
     commandLine(
-        "cmake",
+        cmakeExecutable,
         rootProject.file("jni").absolutePath,
         "-G", makeGenerator,
         "-DCMAKE_BUILD_TYPE=Release",
@@ -75,7 +79,7 @@ val buildJniLibrary by tasks.registering(Exec::class) {
     onlyIf { canBuildHere }
     dependsOn(configureJniLibrary)
     workingDir = cmakeBuildDir.get().asFile
-    commandLine("cmake", "--build", ".", "--config", "Release")
+    commandLine(cmakeExecutable, "--build", ".", "--config", "Release")
     inputs.files(rootProject.file("jni/CMakeLists.txt"), rootProject.file("jni/jni_bridge.cpp"))
     inputs.dir(rootProject.file("jni/c_api"))
     inputs.dir(rootProject.file("webrtc-aec3"))

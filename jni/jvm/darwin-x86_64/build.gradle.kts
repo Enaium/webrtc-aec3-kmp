@@ -27,6 +27,10 @@ val resourceDir = "cn/enaium/webrtc/aec3/native/$classifier"
 
 val canBuildHere = OperatingSystem.current().isMacOsX
 
+// Resolved once in the root build: an IDE-launched Gradle daemon has a minimal
+// PATH, on which `cmake` is not found.
+val cmakeExecutable: String = rootProject.extra["cmakeExecutable"] as String
+
 val nativeOutputDir = layout.buildDirectory.dir("jni-native/$classifier")
 val cmakeBuildDir = layout.buildDirectory.dir("cmake-jni/$classifier")
 
@@ -44,7 +48,7 @@ val configureJniLibrary by tasks.registering(Exec::class) {
     val javaHome = System.getProperty("java.home") ?: System.getenv("JAVA_HOME") ?: ""
     val jniInclude = if (javaHome.isNotEmpty()) "$javaHome/include" else ""
     commandLine(
-        "cmake",
+        cmakeExecutable,
         rootProject.file("jni").absolutePath,
         "-DCMAKE_BUILD_TYPE=Release",
         "-DJNI_INCLUDE_DIR=$jniInclude",
@@ -61,7 +65,7 @@ val buildJniLibrary by tasks.registering(Exec::class) {
     onlyIf { canBuildHere }
     dependsOn(configureJniLibrary)
     workingDir = cmakeBuildDir.get().asFile
-    commandLine("cmake", "--build", ".", "--config", "Release")
+    commandLine(cmakeExecutable, "--build", ".", "--config", "Release")
     inputs.files(rootProject.file("jni/CMakeLists.txt"), rootProject.file("jni/jni_bridge.cpp"))
     inputs.dir(rootProject.file("jni/c_api"))
     inputs.dir(rootProject.file("webrtc-aec3"))

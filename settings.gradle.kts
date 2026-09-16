@@ -11,14 +11,15 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        mavenLocal()
     }
 }
 
 rootProject.name = "webrtc-aec3-kmp"
 
 include(":aec3")
-include(":example")
+include(":examples:basic")
+include(":examples:waveform")
+include(":examples:waveform:android")
 
 // Per-OS/arch JNI artifacts that bundle the prebuilt libwebrtc_aec3_jni shared
 // library as a classpath resource. NativeLoader extracts the matching one at

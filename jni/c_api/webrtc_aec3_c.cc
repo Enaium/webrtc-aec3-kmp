@@ -218,15 +218,22 @@ void webrtc_aec3_echo_control_destroy(webrtc_aec3_echo_control_t* ec) {
   delete ec;
 }
 
+// AEC3 reads and writes the split-band representation of an AudioBuffer, which
+// is only populated by SplitIntoFrequencyBands(). At 16 kHz the buffer has a
+// single band, so the split view *is* the full-band view and the conversion is
+// a no-op; at 32/48 kHz it is not, and without it the echo canceller sees an
+// empty render signal and never converges.
 void webrtc_aec3_echo_control_analyze_render(
     webrtc_aec3_echo_control_t* ec,
     webrtc_aec3_audio_buffer_t* render) {
+  render->impl.SplitIntoFrequencyBands();
   ec->impl->AnalyzeRender(&render->impl);
 }
 
 void webrtc_aec3_echo_control_analyze_capture(
     webrtc_aec3_echo_control_t* ec,
     webrtc_aec3_audio_buffer_t* capture) {
+  capture->impl.SplitIntoFrequencyBands();
   ec->impl->AnalyzeCapture(&capture->impl);
 }
 
@@ -234,7 +241,11 @@ void webrtc_aec3_echo_control_process_capture(
     webrtc_aec3_echo_control_t* ec,
     webrtc_aec3_audio_buffer_t* capture,
     bool level_change) {
+  capture->impl.SplitIntoFrequencyBands();
   ec->impl->ProcessCapture(&capture->impl, level_change);
+  // The processed signal lands in the split bands; the caller reads the
+  // full-band data back.
+  capture->impl.MergeFrequencyBands();
 }
 
 void webrtc_aec3_echo_control_process_capture_with_output(
@@ -242,8 +253,11 @@ void webrtc_aec3_echo_control_process_capture_with_output(
     webrtc_aec3_audio_buffer_t* capture,
     webrtc_aec3_audio_buffer_t* linear_output,
     bool level_change) {
+  capture->impl.SplitIntoFrequencyBands();
   ec->impl->ProcessCapture(&capture->impl, &linear_output->impl,
                             level_change);
+  capture->impl.MergeFrequencyBands();
+  linear_output->impl.MergeFrequencyBands();
 }
 
 webrtc_aec3_metrics_t webrtc_aec3_echo_control_get_metrics(
