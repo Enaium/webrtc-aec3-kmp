@@ -113,6 +113,12 @@ kotlin {
         }
     }
 
+    // ==================== Web ====================
+    // Kotlin/Wasm has no cinterop, so this target talks to an
+    // Emscripten-compiled AEC3 module through a JS glue layer; see the wasm
+    // section at the end of this file.
+    wasmJs()
+
     // ==================== Native ====================
     macosArm64()
     macosX64()
@@ -171,6 +177,14 @@ kotlin {
 
     // ==================== Source sets ====================
     sourceSets {
+        getByName("wasmJsMain") {
+            dependencies {
+                // Typed arrays (Float32Array etc.) for marshaling across the JS
+                // bridge into the Emscripten-compiled AEC3 module.
+                implementation(libs.kotlinx.browser)
+            }
+        }
+
         getByName("commonMain") {
             dependencies {
                 implementation(kotlin("stdlib-common"))
@@ -560,4 +574,212 @@ mavenPublishing {
             url.set("https://github.com/Enaium/webrtc-aec3-kmp/issues")
         }
     }
+}
+
+// ==================== wasm: Emscripten module ====================
+// Kotlin/Wasm cannot link the static library through cinterop, so the same C
+// API is compiled to a standalone Emscripten module (aec3_wasm.js/.wasm) that
+// the wasmJs actuals drive through jni/wasm/aec3_kmp_glue.js. The SDK is found
+// through $EMSDK, -Pwasm.emsdk=<dir>, ~/emsdk or ~/sdk/emsdk.
+
+fun emsdkPath(): String {
+    System.getenv("EMSDK")?.takeIf { it.isNotBlank() }?.let { return it }
+    providers.gradleProperty("wasm.emsdk").orNull?.takeIf { it.isNotBlank() }?.let { return it }
+    val home = System.getProperty("user.home")
+    listOf(File(home, "emsdk"), File(home, "sdk/emsdk"))
+        .forEach { if (it.isDirectory) return it.absolutePath }
+    return ""
+}
+
+val wasmEmsdk = emsdkPath()
+val wasmEmxx = File(wasmEmsdk, "upstream/emscripten/em++")
+val wasmToolchain = File(wasmEmsdk, "upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake")
+val wasmDir = jniDir.resolve("wasm")
+val wasmOutput = layout.buildDirectory.dir("wasmAec3").get().asFile
+
+/** emsdk ships its own Python; put it first so cmake finds it instead of the host's. */
+fun wasmEnv(): Map<String, String> {
+    val pythonDir = File(wasmEmsdk, "python").listFiles()?.firstOrNull { it.isDirectory }
+    return if (pythonDir != null) {
+        mapOf("PATH" to "${pythonDir.absolutePath}/bin:${System.getenv("PATH")}")
+    } else {
+        emptyMap()
+    }
+}
+
+// Emscripten only exports what is named here: everything the JS glue publishes
+// as a global has to be listed, or the symbol disappears from the module.
+val wasmExports = listOf(
+    "_webrtc_aec3_version",
+    "_webrtc_aec3_config_create_default",
+    "_webrtc_aec3_config_create_default_multichannel",
+    "_webrtc_aec3_config_clone",
+    "_webrtc_aec3_config_destroy",
+    "_webrtc_aec3_config_validate",
+    "_webrtc_aec3_config_from_json",
+    "_webrtc_aec3_config_to_json",
+    "_webrtc_aec3_config_set_delay_default_delay",
+    "_webrtc_aec3_config_set_filter_initial_state_seconds",
+    "_webrtc_aec3_config_set_filter_conservative_initial_phase",
+    "_webrtc_aec3_environment_create",
+    "_webrtc_aec3_environment_destroy",
+    "_webrtc_aec3_audio_buffer_create",
+    "_webrtc_aec3_audio_buffer_destroy",
+    "_webrtc_aec3_audio_buffer_get_channel_data",
+    "_webrtc_aec3_audio_buffer_num_channels",
+    "_webrtc_aec3_audio_buffer_samples_per_channel",
+    "_webrtc_aec3_factory_create",
+    "_webrtc_aec3_factory_create_with_config",
+    "_webrtc_aec3_factory_destroy",
+    "_webrtc_aec3_echo_control_create",
+    "_webrtc_aec3_echo_control_destroy",
+    "_webrtc_aec3_echo_control_analyze_render",
+    "_webrtc_aec3_echo_control_analyze_capture",
+    "_webrtc_aec3_echo_control_process_capture",
+    "_webrtc_aec3_echo_control_set_audio_buffer_delay",
+    "_webrtc_aec3_free_string",
+    "_aec3_wasm_get_metrics",
+    "_malloc",
+    "_free",
+).joinToString(",")
+
+tasks.register<Exec>("configureWasmAec3") {
+    group = "wasm"
+    description = "Configures the Emscripten build of AEC3 (needs EMSDK or -Pwasm.emsdk)."
+    onlyIf { wasmEmsdk.isNotEmpty() }
+    doFirst {
+        wasmOutput.mkdirs()
+    }
+    workingDir = wasmOutput
+    environment(wasmEnv())
+    // emsdk's cmake wrapper is not used: the Emscripten toolchain file is
+    // passed explicitly, and the host make drives the build.
+    val makeProgram = if (hostOs.isWindows) "nmake" else "/usr/bin/make"
+    commandLine(
+        cmakeExecutable, wasmDir.absolutePath,
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DCMAKE_TOOLCHAIN_FILE=${wasmToolchain.absolutePath}",
+        "-DCMAKE_MAKE_PROGRAM=$makeProgram",
+    )
+}
+
+tasks.register<Exec>("buildWasmAec3") {
+    group = "wasm"
+    description = "Builds the Emscripten static library of AEC3."
+    onlyIf { wasmEmsdk.isNotEmpty() }
+    dependsOn("configureWasmAec3")
+    workingDir = wasmOutput
+    environment(wasmEnv())
+    commandLine(cmakeExecutable, "--build", ".", "--config", "Release")
+}
+
+tasks.register<Exec>("linkWasmAec3") {
+    group = "wasm"
+    description = "Links the Emscripten module the wasmJs target drives."
+    onlyIf { wasmEmsdk.isNotEmpty() }
+    dependsOn("buildWasmAec3")
+    workingDir = wasmDir
+    environment(wasmEnv())
+    doFirst {
+        wasmOutput.mkdirs()
+        commandLine(
+            wasmEmxx.absolutePath,
+            // em++ (not emcc): the library and the shim are C++, so the
+            // link line has to pull in libc++/libc++abi.
+            "-fexceptions",
+            wasmDir.resolve("aec3_wasm_shim.cpp").absolutePath,
+            File(wasmOutput, "webrtc-aec3/libwebrtc_aec3.a").absolutePath,
+            "-I${jniDir.resolve("c_api").absolutePath}",
+            "-o", File(wasmOutput, "aec3_wasm.js").absolutePath,
+            "-sMODULARIZE=1", "-sEXPORT_NAME=Aec3Module", "-sEXPORT_ES6=1",
+            "-sEXPORTED_FUNCTIONS=$wasmExports",
+            "-sEXPORTED_RUNTIME_METHODS=ccall,UTF8ToString,stringToUTF8,lengthBytesUTF8," +
+                "HEAP8,HEAPU8,HEAP16,HEAPU16,HEAP32,HEAPU32,HEAPF32,HEAPF64",
+            "-sALLOW_MEMORY_GROWTH=1", "-sINITIAL_MEMORY=16777216",
+            "-sENVIRONMENT=web,worker,node", "--no-entry",
+        )
+    }
+    inputs.file(wasmDir.resolve("aec3_wasm_shim.cpp"))
+    inputs.file(wasmDir.resolve("CMakeLists.txt"))
+    outputs.file(File(wasmOutput, "aec3_wasm.js"))
+    outputs.file(File(wasmOutput, "aec3_wasm.wasm"))
+}
+
+// ==================== wasm: npm package ====================
+// The Emscripten module and the JS glue ship as an npm package
+// (@enaium/webrtc-aec3-kmp) instead of a Maven "assets" jar: web apps depend on
+// it like any other npm package and `import { initAec3Kmp } from
+// "@enaium/webrtc-aec3-kmp"` before running the Kotlin module, so no asset
+// extraction step is involved. The package version is the project version, so
+// Maven and npm share it.
+
+val npmPackageVersion: String by lazy { rootProject.version.toString() }
+
+val wasmNpmDir = layout.buildDirectory.dir("npm").get().asFile
+val wasmGlue = wasmDir.resolve("aec3_kmp_glue.js")
+
+tasks.register("assembleWasmNpm") {
+    group = "wasm"
+    description = "Stages the @enaium/webrtc-aec3-kmp npm package in build/npm."
+    dependsOn("linkWasmAec3")
+    inputs.file(wasmGlue)
+    // The version comes from the Gradle version, so a bump must re-stage.
+    inputs.property("npmPackageVersion", npmPackageVersion)
+    inputs.file(File(wasmOutput, "aec3_wasm.js"))
+    inputs.file(File(wasmOutput, "aec3_wasm.wasm"))
+    outputs.dir(wasmNpmDir)
+    doLast {
+        wasmNpmDir.deleteRecursively()
+        wasmNpmDir.mkdirs()
+        wasmGlue.copyTo(wasmNpmDir.resolve("aec3_kmp_glue.js"), overwrite = true)
+        File(wasmOutput, "aec3_wasm.js").copyTo(wasmNpmDir.resolve("aec3_wasm.js"), overwrite = true)
+        File(wasmOutput, "aec3_wasm.wasm").copyTo(wasmNpmDir.resolve("aec3_wasm.wasm"), overwrite = true)
+        wasmNpmDir.resolve("package.json").writeText(
+            """
+            {
+              "name": "@enaium/webrtc-aec3-kmp",
+              "version": "$npmPackageVersion",
+              "description": "Emscripten-compiled WebRTC AEC3 module and JS glue for the webrtc-aec3-kmp wasmJs target",
+              "license": "BSD-3-Clause",
+              "type": "module",
+              "exports": {
+                ".": "./aec3_kmp_glue.js",
+                "./aec3_wasm.js": "./aec3_wasm.js",
+                "./package.json": "./package.json"
+              },
+              "files": ["aec3_kmp_glue.js", "aec3_wasm.js", "aec3_wasm.wasm"],
+              "homepage": "https://github.com/Enaium/webrtc-aec3-kmp",
+              "repository": {
+                "type": "git",
+                "url": "git+https://github.com/Enaium/webrtc-aec3-kmp.git"
+              }
+            }
+            """.trimIndent() + "\n",
+        )
+    }
+}
+
+tasks.register<Exec>("publishWasmNpm") {
+    group = "publishing"
+    description = "Publishes @enaium/webrtc-aec3-kmp to npm (token: npm.publish.key)."
+    dependsOn("assembleWasmNpm")
+    workingDir = wasmNpmDir
+    // The token lives in the user-level Gradle properties file
+    // (~/.gradle/gradle.properties, next to mavenCentralUsername and the
+    // signing.* entries); CI writes the same key there from a repository
+    // secret. `-Pnpm.publish.key=<token>` overrides it for one-off runs.
+    val npmKey = providers.gradleProperty("npm.publish.key")
+    doFirst {
+        val key = npmKey.orNull?.takeIf { it.isNotBlank() }
+            ?: throw GradleException(
+                "npm.publish.key is not set: add it to ~/.gradle/gradle.properties " +
+                    "or pass -Pnpm.publish.key=<token>",
+            )
+        environment("NODE_AUTH_TOKEN", key)
+        wasmNpmDir.resolve(".npmrc").writeText("//registry.npmjs.org/:_authToken=\${NODE_AUTH_TOKEN}\n")
+    }
+    // A rolling version (1.0.4-rolling.<tag>) is a semver prerelease, so npm
+    // requires an explicit tag; `latest` keeps `npm i @enaium/webrtc-aec3-kmp`
+    // working.
+    commandLine("npm", "publish", "--access", "public", "--tag", "latest")
 }

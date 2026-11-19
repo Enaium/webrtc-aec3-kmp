@@ -22,7 +22,10 @@
 
 @file:OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)
 
+import cn.enaium.webrtc.aec3.examples.waveform.Aec3Pipeline
+import cn.enaium.webrtc.aec3.examples.waveform.MAX_WINDOW_MILLIS
 import cn.enaium.webrtc.aec3.examples.waveform.runWaveformExample
+import cn.enaium.webrtc.aec3.examples.waveform.windowSamples
 import kotlinx.cinterop.toKString
 import platform.posix.getenv
 import kotlin.system.exitProcess
@@ -39,7 +42,10 @@ import kotlin.system.exitProcess
  */
 fun main() {
     val frames = getenv("AEC3_KMP_FRAMES")?.toKString()?.toIntOrNull() ?: Int.MAX_VALUE
-    if (!runWaveformExample(frames)) {
+    val displayed = Aec3Pipeline(windowSamples(MAX_WINDOW_MILLIS)).use {
+        runWaveformExample(it, frames)
+    }
+    if (!displayed) {
         exitProcess(1)
     }
 }

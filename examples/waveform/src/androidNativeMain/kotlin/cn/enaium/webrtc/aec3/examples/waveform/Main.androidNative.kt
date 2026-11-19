@@ -44,7 +44,9 @@ import kotlinx.cinterop.COpaquePointer
  */
 @CName("SDL_main")
 fun sdlMain(argc: Int, argv: CPointer<CPointerVar<ByteVar>>?): Int {
-    runWaveformExample()
+    Aec3Pipeline(windowSamples(MAX_WINDOW_MILLIS)).use {
+        runWaveformExample(it)
+    }
     SDL.quit()
     return 0
 }

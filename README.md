@@ -2,7 +2,7 @@
 
 ![](https://img.cdn1.vip/i/6aaa8cb7a00c2_1789562039.webp)
 
-[![Maven Central](https://img.shields.io/maven-central/v/cn.enaium.webrtc.aec3/webrtc-aec3-kmp?label=Maven%20Central)](https://central.sonatype.com/artifact/cn.enaium.webrtc.aec3/webrtc-aec3-kmp)
+[![Maven Central](https://img.shields.io/maven-central/v/cn.enaium.webrtc/webrtc-aec3-kmp?label=Maven%20Central)](https://central.sonatype.com/artifact/cn.enaium.webrtc/webrtc-aec3-kmp)
 [![License](https://img.shields.io/github/license/Enaium/webrtc-aec3-kmp)](https://github.com/Enaium/webrtc-aec3-kmp/blob/main/LICENSE)
 [![GitHub Actions](https://img.shields.io/github/actions/workflow/status/Enaium/webrtc-aec3-kmp/test.yml?label=test)](https://github.com/Enaium/webrtc-aec3-kmp/actions/workflows/test.yml)
 [![GitHub Repo stars](https://img.shields.io/github/stars/Enaium/webrtc-aec3-kmp?style=social)](https://github.com/Enaium/webrtc-aec3-kmp)
@@ -22,16 +22,42 @@ Kotlin Multiplatform bindings for the [WebRTC AEC3](https://github.com/Enaium/we
 | **Windows**    | mingwX64                                                     | Kotlin/Native cinterop (bindings)          |
 | **tvOS**       | arm64, simulatorArm64                                        | Kotlin/Native cinterop (static library)    |
 | **watchOS**    | arm64, simulatorArm64, deviceArm64                           | Kotlin/Native cinterop (static library)    |
+| **Web**        | wasmJs                                                       | Emscripten module + JS glue (npm package)  |
 
 ## Gradle Dependency
 
 **Kotlin Multiplatform / Android:**
 
 ```kotlin
-implementation("cn.enaium.webrtc.aec3:webrtc-aec3-kmp:1.0.3")
+implementation("cn.enaium.webrtc:webrtc-aec3-kmp:1.0.3")
 ```
 
 > Built with Kotlin 2.4.10: consumers need a Kotlin 2.4+ compiler, since older ones cannot read the 2.4 metadata of the published artifacts.
+
+**Web (wasmJs):** Kotlin/Wasm has no cinterop, so the canceller ships as an Emscripten-compiled module in an npm package next to the Maven klib:
+
+```kotlin
+implementation("cn.enaium.webrtc:webrtc-aec3-kmp-wasm-js:1.0.3")
+```
+
+```bash
+npm i @enaium/webrtc-aec3-kmp
+```
+
+```html
+<script type="importmap">
+  { "imports": { "@enaium/webrtc-aec3-kmp": "./node_modules/@enaium/webrtc-aec3-kmp/aec3_kmp_glue.js" } }
+</script>
+<script type="module">
+  import { initAec3Kmp } from '@enaium/webrtc-aec3-kmp';
+  await initAec3Kmp();
+  await import("./aec3_wasm_app.mjs"); // the Kotlin/Wasm executable
+</script>
+```
+
+`initAec3Kmp()` instantiates `aec3_wasm.js/.wasm` and publishes every
+`webrtc_aec3_*` export the bindings call; without it the first AEC3 call fails
+with an undefined function.
 
 **JVM:** the right native binary is resolved automatically — the `webrtc-aec3-kmp-jvm` artifact pulls in the matching `:jni-jvm-*` sibling on the classpath:
 

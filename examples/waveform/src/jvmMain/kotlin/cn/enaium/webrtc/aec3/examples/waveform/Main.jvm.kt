@@ -62,7 +62,10 @@ private const val RELAUNCH_MARKER = "AEC3_KMP_WAVEFORM_RELAUNCHED"
 
 /** JVM entry point: `./gradlew :examples:waveform:jvmRun`. */
 fun main(args: Array<String>) {
-    if (runWaveformExample(parseFrames(args))) return
+    val displayed = Aec3Pipeline(windowSamples(MAX_WINDOW_MILLIS)).use {
+        runWaveformExample(it, parseFrames(args))
+    }
+    if (displayed) return
     // No window could be opened. On macOS that is what happens when the JVM was
     // not started on the process' first thread, which SDL needs to create one -
     // `./gradlew :examples:waveform:jvmRun` passes -XstartOnFirstThread, an IDE

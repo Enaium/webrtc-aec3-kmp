@@ -63,6 +63,7 @@ jobs:
           -x :aec3:publishAndroidNativeArm32PublicationToMavenCentralRepository
           -x :aec3:publishAndroidNativeX64PublicationToMavenCentralRepository
           -x :aec3:publishAndroidNativeX86PublicationToMavenCentralRepository
+          -x :aec3:publishWasmJsPublicationToMavenCentralRepository
           :jni-jvm-darwin-aarch64:publishToMavenCentral
           :jni-jvm-darwin-x86_64:publishToMavenCentral
           --continue

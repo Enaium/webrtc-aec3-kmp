@@ -68,7 +68,7 @@ private const val MAX_DELAY_MILLIS = 500
  * the plots show the newest part of them.
  */
 class WaveformWindow(
-    private val pipeline: Aec3Pipeline,
+    private val pipeline: WaveformPipeline,
     initialWindowMillis: Int = DEFAULT_WINDOW_MILLIS,
 ) {
 

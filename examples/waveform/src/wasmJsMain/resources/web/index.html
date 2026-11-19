@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>webrtc-aec3-kmp waveform (wasm)</title>
+    <style>
+        html, body { margin: 0; height: 100%; background: #12121a; overflow: hidden; }
+        canvas { display: block; width: 100vw; height: 100vh; }
+    </style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<script type="importmap">
+    {
+        "imports": {
+            "@enaium/sdl-kmp": "./node_modules/@enaium/sdl-kmp/sdl_kmp_glue.js",
+            "@enaium/imgui-kmp": "./node_modules/@enaium/imgui-kmp/imgui_kmp_glue.js",
+            "@enaium/audio-io-kmp": "./node_modules/@enaium/audio-io-kmp/audio-io-kmp-web.js"
+        }
+    }
+</script>
+<script type="module">
+    // Both Emscripten modules live in the same page: SDL owns the canvas and
+    // renders, imgui produces draw data that the Kotlin backend copies into
+    // SDL's geometry API. They must be up before the Kotlin module runs.
+    import { initSdlKmp } from '@enaium/sdl-kmp';
+    import { initImguiKmp } from '@enaium/imgui-kmp';
+    // audio-io-kmp's Web Audio backend is a plain script: it publishes the
+    // audioIo_* globals the Kotlin wasm side calls.
+    import '@enaium/audio-io-kmp';
+
+    const canvas = document.getElementById('canvas');
+
+    // ImGui/SDL consume the right button themselves (context menus, drag
+    // handles); without this the browser's own menu opens on top of the
+    // canvas and swallows the button-up ImGui needs.
+    canvas.addEventListener('contextmenu', (event) => event.preventDefault());
+    canvas.addEventListener('auxclick', (event) => {
+        if (event.button === 1) event.preventDefault();
+    });
+
+    await initSdlKmp({ canvas });
+    await initImguiKmp();
+
+    // The Kotlin/Wasm runtime invokes main() when the module is imported.
+    await import('./webrtc-aec3-kmp-examples-waveform.mjs');
+</script>
+</body>
+</html>

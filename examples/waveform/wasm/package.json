@@ -1,0 +1,9 @@
+{
+  "private": true,
+  "description": "Emscripten and Web Audio glue the browser build of the waveform example loads: SDL3 compiled to wasm, the imgui-kmp module that produces its draw data, and audio-io-kmp's Web Audio graph.",
+  "dependencies": {
+    "@enaium/sdl-kmp": "3.4.18-2",
+    "@enaium/imgui-kmp": "1.93.0-2",
+    "@enaium/audio-io-kmp": "1.1.0"
+  }
+}
