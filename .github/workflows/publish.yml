@@ -28,7 +28,7 @@ name: Publish
 jobs:
   publish-macos:
     name: Publish macOS (multiplatform + darwin JNI)
-    runs-on: macos-14
+    runs-on: macos-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
